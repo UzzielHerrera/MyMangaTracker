@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manga Cloud - Uzziel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Reutilizamos todo tu CSS anterior y añadimos el responsivo */
+        body { background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 30px; }
+        
+        .card { background: #151515; border-radius: 12px; overflow: hidden; border: 2px solid #222; position: relative; display: flex; flex-direction: column; transition: all 0.3s ease; }
+        .card.completado::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(40, 167, 69, 0.35); pointer-events: none; z-index: 5; }
+        .card.abandonado::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220, 53, 69, 0.25); pointer-events: none; z-index: 5; }
+
+        .leyendo.status-al-dia { border-color: #28a745; box-shadow: 0 0 15px rgba(40, 167, 69, 0.3); }
+        .leyendo.status-pendiente { border-color: #ffc107; box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
+        
+        .img-box { height: 320px; background: #222; position: relative; overflow: hidden; }
+        img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Botón Basura */
+        .btn-delete { position: absolute; top: 10px; right: 10px; background: rgba(220,53,69,0.9); color: white; border: none; border-radius: 8px; width: 35px; height: 35px; cursor: pointer; z-index: 20; opacity: 0; transition: 0.3s; }
+        .card:hover .btn-delete { opacity: 1; }
+
+        .title-container { text-align: center; padding: 10px; height: 80px; }
+        .title { color: #00d2ff; font-weight: bold; cursor: pointer; }
+        .romanji { color: #888; font-size: 0.8em; font-style: italic; cursor: pointer; }
+
+        .progreso-box { background: rgba(0,0,0,0.4); padding: 12px; margin: 0 15px; border-radius: 8px; }
+        .fila-progreso { display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; margin-bottom: 5px; }
+        
+        input { background: #2a2a2a; border: 1px solid #444; color: #fff; width: 60px; text-align: center; justify-self: center; border-radius: 4px; }
+        .btn-plus { background: #fff; color: #000; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 30px; justify-self: end; }
+
+        .estado-lectura-btns { display: flex; gap: 5px; padding: 15px; }
+        .btn-status { flex: 1; font-size: 9px; padding: 6px 0; border: 1px solid #444; background: #222; color: #666; cursor: pointer; font-weight: bold; border-radius: 4px; }
+        .active-comp { background: #28a745 !important; color: white !important; }
+        .active-ley { background: #ffc107 !important; color: black !important; }
+        .active-aba { background: #dc3545 !important; color: white !important; }
+
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+            .img-box { height: 220px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-align:center;">Manga Tracker Cloud ☁️</h1>
+    <div id="manga-grid" class="grid"></div>
+
+    <script>
+        // CONFIGURACIÓN DE TU DB
+        const SB_URL = "TU_SUPABASE_URL";
+        const SB_KEY = "TU_SUPABASE_KEY";
+        const supabase = supabase.createClient(SB_URL, SB_KEY);
+
+        let listaMangas = [];
+
+        async function cargarDatos() {
+            const { data, error } = await supabase.from('mangas').select('*').order('titulo', { ascending: true });
+            if (error) console.error(error);
+            else {
+                listaMangas = data;
+                render();
+            }
+        }
+
+        async function actualizarManga(id, cambios) {
+            const { error } = await supabase.from('mangas').update(cambios).eq('id', id);
+            if (error) alert("Error al guardar");
+            else cargarDatos(); // Recargar para sincronizar
+        }
+
+        async function eliminarManga(id, nombre) {
+            if(confirm(`¿Eliminar ${nombre}?`)) {
+                await supabase.from('mangas').delete().eq('id', id);
+                cargarDatos();
+            }
+        }
+
+        function render() {
+            const container = document.getElementById('manga-grid');
+            container.innerHTML = listaMangas.map((m) => {
+                const esLeyendo = m.estado_lectura === 'leyendo';
+                const nov = (m.ultimo_web > m.ultimo_visto) ? 'status-pendiente' : 'status-al-dia';
+
+                return `
+                <div class="card ${nov} ${m.estado_lectura}">
+                    <div class="img-box">
+                        <button class="btn-delete" onclick="eliminarManga('${m.id}', '${m.titulo}')">🗑️</button>
+                        <img src="${m.img}">
+                    </div>
+                    <div class="info">
+                        <div class="title-container">
+                            <div class="title" onclick="editar('${m.id}', 'titulo', '${m.titulo}')">${m.titulo} ✏️</div>
+                            <div class="romanji" onclick="editar('${m.id}', 'titulo_romanji', '${m.titulo_romanji}')">${m.titulo_romanji || '---'} ✏️</div>
+                        </div>
+                        <div class="progreso-box">
+                            <div class="fila-progreso">
+                                <span>Visto:</span>
+                                <input type="number" value="${m.ultimo_visto}" onchange="actualizarManga('${m.id}', {ultimo_visto: this.value})">
+                                ${esLeyendo ? `<button class="btn-plus" onclick="actualizarManga('${m.id}', {ultimo_visto: ${m.ultimo_visto + 1}})">+1</button>` : '<span></span>'}
+                            </div>
+                            <div class="fila-progreso">
+                                <span>Web:</span>
+                                <input type="number" value="${m.ultimo_web}" onchange="actualizarManga('${m.id}', {ultimo_web: this.value})">
+                                ${esLeyendo ? `<button class="btn-plus" onclick="actualizarManga('${m.id}', {ultimo_web: ${m.ultimo_web + 1}})">+1</button>` : '<span></span>'}
+                            </div>
+                        </div>
+                        <div class="estado-lectura-btns">
+                            <button class="btn-status ${m.estado_lectura === 'completado' ? 'active-comp' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'completado'})">COMP</button>
+                            <button class="btn-status ${m.estado_lectura === 'leyendo' ? 'active-ley' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'leyendo'})">LEY</button>
+                            <button class="btn-status ${m.estado_lectura === 'abandonado' ? 'active-aba' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'abandonado'})">ABA</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function editar(id, campo, actual) {
+            const nuevo = prompt(`Editar ${campo}:`, actual);
+            if(nuevo) actualizarManga(id, {[campo]: nuevo});
+        }
+
+        window.onload = cargarDatos;
+    </script>
+</body>
+</html>
