@@ -55,13 +55,14 @@
         // CONFIGURACIÓN DE TU DB
         const SB_URL = "https://dwinfqyinsjqxyonmnef.supabase.co";
         const SB_KEY = "sb_publishable_UeXKVyeuMIEl5gDdvbWlzQ_Yg4h55IS";
-        const supabase = supabase.createClient(SB_URL, SB_KEY);
+        const client = supabase.createClient(SB_URL, SB_KEY);
 
         let listaMangas = [];
 
         async function cargarDatos() {
-            const { data, error } = await supabase.from('mangas').select('*').order('titulo', { ascending: true });
-            if (error) console.error(error);
+            // Cambiado 'supabase' por 'client'
+            const { data, error } = await client.from('mangas').select('*').order('titulo', { ascending: true });
+            if (error) console.error("Error de Supabase:", error);
             else {
                 listaMangas = data;
                 render();
@@ -69,14 +70,14 @@
         }
 
         async function actualizarManga(id, cambios) {
-            const { error } = await supabase.from('mangas').update(cambios).eq('id', id);
-            if (error) alert("Error al guardar");
-            else cargarDatos(); // Recargar para sincronizar
+            const { error } = await client.from('mangas').update(cambios).eq('id', id);
+            if (error) alert("Error al guardar: " + error.message);
+            else cargarDatos();
         }
 
         async function eliminarManga(id, nombre) {
             if(confirm(`¿Eliminar ${nombre}?`)) {
-                await supabase.from('mangas').delete().eq('id', id);
+                await client.from('mangas').delete().eq('id', id);
                 cargarDatos();
             }
         }
