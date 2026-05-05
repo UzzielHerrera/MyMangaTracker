@@ -146,9 +146,9 @@
                             </div>
                         </div>
                         <div class="estado-lectura-btns">
-                            <button class="btn-status ${est === 'completado' ? 'active-comp' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'completado'})">COMP</button>
-                            <button class="btn-status ${est === 'leyendo' ? 'active-ley' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'leyendo'})">LEY</button>
-                            <button class="btn-status ${est === 'abandonado' ? 'active-aba' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'abandonado'})">ABA</button>
+                            <button class="btn-status ${est === 'completado' ? 'active-comp' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'completado'})">COMPLETADO</button>
+                            <button class="btn-status ${est === 'leyendo' ? 'active-ley' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'leyendo'})">LEYENDO</button>
+                            <button class="btn-status ${est === 'abandonado' ? 'active-aba' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'abandonado'})">ABANDONADO</button>
                         </div>
                         <a href="${m.link}" class="btn-ir" target="_blank">IR AL MANGA</a>
                     </div>
