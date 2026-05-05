@@ -3,46 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Cloud - Uzziel</title>
+    <title>Manga Cloud Pro - Uzziel</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Reutilizamos todo tu CSS anterior y añadimos el responsivo */
         body { background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; padding: 20px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 30px; }
         
         .card { background: #151515; border-radius: 12px; overflow: hidden; border: 2px solid #222; position: relative; display: flex; flex-direction: column; transition: all 0.3s ease; }
+        
+        /* Overlays de estado */
         .card.completado::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(40, 167, 69, 0.35); pointer-events: none; z-index: 5; }
         .card.abandonado::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220, 53, 69, 0.25); pointer-events: none; z-index: 5; }
 
+        /* Brillo solo en LEYENDO */
         .leyendo.status-al-dia { border-color: #28a745; box-shadow: 0 0 15px rgba(40, 167, 69, 0.3); }
         .leyendo.status-pendiente { border-color: #ffc107; box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
-        
+        .leyendo.status-error { border-color: #dc3545; box-shadow: 0 0 15px rgba(220, 53, 69, 0.5); }
+        .completado, .abandonado { box-shadow: none !important; border-color: #333; }
+
         .img-box { height: 320px; background: #222; position: relative; overflow: hidden; }
         img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Botón Basura */
-        .btn-delete { position: absolute; top: 10px; right: 10px; background: rgba(220,53,69,0.9); color: white; border: none; border-radius: 8px; width: 35px; height: 35px; cursor: pointer; z-index: 20; opacity: 0; transition: 0.3s; }
-        .card:hover .btn-delete { opacity: 1; }
+        /* Badges superiores */
+        .badge { position: absolute; top: 10px; left: 10px; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 10; }
+        .badge-verde { background: #28a745; }
+        .badge-amarillo { background: #ffc107; color: #000; }
+        .badge-rojo { background: #dc3545; }
 
-        .title-container { text-align: center; padding: 10px; height: 80px; }
-        .title { color: #00d2ff; font-weight: bold; cursor: pointer; }
-        .romanji { color: #888; font-size: 0.8em; font-style: italic; cursor: pointer; }
-
-        .progreso-box { background: rgba(0,0,0,0.4); padding: 12px; margin: 0 15px; border-radius: 8px; }
-        .fila-progreso { display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; margin-bottom: 5px; }
+        /* Botones de acción (Flotantes) */
+        .action-btns { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 20; opacity: 0; transition: 0.3s; }
+        .card:hover .action-btns { opacity: 1; }
         
-        input { background: #2a2a2a; border: 1px solid #444; color: #fff; width: 60px; text-align: center; justify-self: center; border-radius: 4px; }
-        .btn-plus { background: #fff; color: #000; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 30px; justify-self: end; }
+        .btn-float { width: 35px; height: 35px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: white; }
+        .btn-del { background: rgba(220, 53, 69, 0.9); }
+        .btn-edit { background: rgba(0, 123, 255, 0.9); }
 
-        .estado-lectura-btns { display: flex; gap: 5px; padding: 15px; }
-        .btn-status { flex: 1; font-size: 9px; padding: 6px 0; border: 1px solid #444; background: #222; color: #666; cursor: pointer; font-weight: bold; border-radius: 4px; }
-        .active-comp { background: #28a745 !important; color: white !important; }
-        .active-ley { background: #ffc107 !important; color: black !important; }
-        .active-aba { background: #dc3545 !important; color: white !important; }
+        .info { padding: 15px; flex-grow: 1; z-index: 10; position: relative; }
+        .title-container { text-align: center; margin-bottom: 12px; height: 75px; display: flex; flex-direction: column; justify-content: center; }
+        .title { font-size: 14px; font-weight: bold; color: #00d2ff; margin-bottom: 4px; }
+        .romanji { font-size: 11px; color: #888; font-style: italic; }
+
+        /* Caja de progreso simétrica */
+        .progreso-box { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #222; }
+        .fila-progreso { display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; margin-bottom: 8px; text-align: center; }
+        .progreso-label { font-size: 12px; color: #aaa; font-weight: bold; text-align: left; }
+        input { background: #2a2a2a; border: 1px solid #444; color: #fff; width: 100%; max-width: 65px; text-align: center; border-radius: 4px; padding: 4px; justify-self: center; }
+        .btn-plus { background: #fff; border: none; color: #000; padding: 4px 0; width: 35px; border-radius: 4px; cursor: pointer; font-weight: bold; justify-self: end; }
+
+        .estado-lectura-btns { display: flex; gap: 4px; }
+        .btn-status { flex: 1; font-size: 8px; padding: 6px 0; border-radius: 4px; border: 1px solid #444; cursor: pointer; font-weight: bold; background: #222; color: #666; }
+        .active-comp { background: #28a745 !important; color: white !important; border-color: #28a745 !important; }
+        .active-ley { background: #ffc107 !important; color: black !important; border-color: #ffc107 !important; }
+        .active-aba { background: #dc3545 !important; color: white !important; border-color: #dc3545 !important; }
+
+        .btn-ir { display: block; border: 1px solid #444; color: #fff; text-decoration: none; padding: 8px; text-align: center; border-radius: 6px; font-size: 11px; margin-top: 12px; font-weight: bold; }
 
         @media (max-width: 600px) {
-            .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
             .img-box { height: 220px; }
+            .action-btns { opacity: 1; } /* Siempre visible en móvil */
         }
     </style>
 </head>
@@ -52,7 +71,6 @@
     <div id="manga-grid" class="grid"></div>
 
     <script>
-        // CONFIGURACIÓN DE TU DB
         const SB_URL = "https://dwinfqyinsjqxyonmnef.supabase.co";
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3aW5mcXlpbnNqcXh5b25tbmVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5ODYxMjQsImV4cCI6MjA5MzU2MjEyNH0.6PND5vCrFQPEATW5h8MNm4jLbmxkgZT8UZXFnXISwEA";
         const client = supabase.createClient(SB_URL, SB_KEY);
@@ -60,70 +78,82 @@
         let listaMangas = [];
 
         async function cargarDatos() {
-            // Cambiado 'supabase' por 'client'
             const { data, error } = await client.from('mangas').select('*').order('titulo', { ascending: true });
-            if (error) console.error("Error de Supabase:", error);
-            else {
-                listaMangas = data;
-                render();
-            }
+            if (error) console.error(error);
+            else { listaMangas = data; render(); }
         }
 
         async function actualizarManga(id, cambios) {
             const { error } = await client.from('mangas').update(cambios).eq('id', id);
-            if (error) alert("Error al guardar: " + error.message);
+            if (error) alert("Error: " + error.message);
             else cargarDatos();
         }
 
         async function eliminarManga(id, nombre) {
-            if(confirm(`¿Eliminar ${nombre}?`)) {
+            if(confirm(`¿Eliminar permanentemente "${nombre}"?`)) {
                 await client.from('mangas').delete().eq('id', id);
                 cargarDatos();
             }
         }
 
+        function editarNombres(id, tit, rom) {
+            const nTit = prompt("Nuevo Título (Español/Inglés):", tit);
+            if (nTit === null) return;
+            const nRom = prompt("Nuevo Título Romanji:", rom || "");
+            if (nRom === null) return;
+            
+            actualizarManga(id, { titulo: nTit, titulo_romanji: nRom });
+        }
+
+        function obtenerNovedad(visto, web) {
+            if (web < visto) return { clase: 'status-error', badge: 'badge-rojo', texto: 'ERROR ⚠️' };
+            if (visto == web) return { clase: 'status-al-dia', badge: 'badge-verde', texto: 'AL DÍA ✅' };
+            return { clase: 'status-pendiente', badge: 'badge-amarillo', texto: 'PENDIENTE 📖' };
+        }
+
         function render() {
             const container = document.getElementById('manga-grid');
             container.innerHTML = listaMangas.map((m) => {
-                const esLeyendo = m.estado_lectura === 'leyendo';
-                const nov = (m.ultimo_web > m.ultimo_visto) ? 'status-pendiente' : 'status-al-dia';
+                const nov = obtenerNovedad(m.ultimo_visto, m.ultimo_web);
+                const est = m.estado_lectura || 'leyendo';
+                const esLeyendo = est === 'leyendo';
 
                 return `
-                <div class="card ${nov} ${m.estado_lectura}">
+                <div class="card ${nov.clase} ${est}">
                     <div class="img-box">
-                        <button class="btn-delete" onclick="eliminarManga('${m.id}', '${m.titulo}')">🗑️</button>
-                        <img src="${m.img}">
+                        ${esLeyendo ? `<div class="badge ${nov.badge}">${nov.texto}</div>` : ''}
+                        <div class="action-btns">
+                            <button class="btn-float btn-del" onclick="eliminarManga('${m.id}', '${m.titulo}')">🗑️</button>
+                            <button class="btn-float btn-edit" onclick="editarNombres('${m.id}', '${m.titulo}', '${m.titulo_romanji}')">✏️</button>
+                        </div>
+                        <img src="${m.img}" onerror="this.src='https://via.placeholder.com/240x320'">
                     </div>
                     <div class="info">
                         <div class="title-container">
-                            <div class="title" onclick="editar('${m.id}', 'titulo', '${m.titulo}')">${m.titulo} ✏️</div>
-                            <div class="romanji" onclick="editar('${m.id}', 'titulo_romanji', '${m.titulo_romanji}')">${m.titulo_romanji || '---'} ✏️</div>
+                            <div class="title">${m.titulo}</div>
+                            <div class="romanji">${m.titulo_romanji || '---'}</div>
                         </div>
                         <div class="progreso-box">
                             <div class="fila-progreso">
-                                <span>Visto:</span>
-                                <input type="number" value="${m.ultimo_visto}" onchange="actualizarManga('${m.id}', {ultimo_visto: this.value})">
-                                ${esLeyendo ? `<button class="btn-plus" onclick="actualizarManga('${m.id}', {ultimo_visto: ${m.ultimo_visto + 1}})">+1</button>` : '<span></span>'}
+                                <span class="progreso-label">Visto:</span>
+                                <input type="number" step="0.01" value="${m.ultimo_visto}" onchange="actualizarManga('${m.id}', {ultimo_visto: this.value})">
+                                ${esLeyendo ? `<button class="btn-plus" onclick="actualizarManga('${m.id}', {ultimo_visto: ${parseFloat(m.ultimo_visto) + 1}})">+1</button>` : '<span></span>'}
                             </div>
                             <div class="fila-progreso">
-                                <span>Web:</span>
-                                <input type="number" value="${m.ultimo_web}" onchange="actualizarManga('${m.id}', {ultimo_web: this.value})">
-                                ${esLeyendo ? `<button class="btn-plus" onclick="actualizarManga('${m.id}', {ultimo_web: ${m.ultimo_web + 1}})">+1</button>` : '<span></span>'}
+                                <span class="progreso-label">Web:</span>
+                                <input type="number" step="0.01" value="${m.ultimo_web}" onchange="actualizarManga('${m.id}', {ultimo_web: this.value})">
+                                ${esLeyendo ? `<button class="btn-plus" onclick="actualizarManga('${m.id}', {ultimo_web: ${parseFloat(m.ultimo_web) + 1}})">+1</button>` : '<span></span>'}
                             </div>
                         </div>
                         <div class="estado-lectura-btns">
-                            <button class="btn-status ${m.estado_lectura === 'completado' ? 'active-comp' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'completado'})">COMP</button>
-                            <button class="btn-status ${m.estado_lectura === 'leyendo' ? 'active-ley' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'leyendo'})">LEY</button>
-                            <button class="btn-status ${m.estado_lectura === 'abandonado' ? 'active-aba' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'abandonado'})">ABA</button>
+                            <button class="btn-status ${est === 'completado' ? 'active-comp' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'completado'})">COMP</button>
+                            <button class="btn-status ${est === 'leyendo' ? 'active-ley' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'leyendo'})">LEY</button>
+                            <button class="btn-status ${est === 'abandonado' ? 'active-aba' : ''}" onclick="actualizarManga('${m.id}', {estado_lectura: 'abandonado'})">ABA</button>
                         </div>
+                        <a href="${m.link}" class="btn-ir" target="_blank">IR AL MANGA</a>
                     </div>
                 </div>`;
             }).join('');
-        }
-
-        function editar(id, campo, actual) {
-            const nuevo = prompt(`Editar ${campo}:`, actual);
-            if(nuevo) actualizarManga(id, {[campo]: nuevo});
         }
 
         window.onload = cargarDatos;
