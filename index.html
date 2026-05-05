@@ -76,32 +76,65 @@
         const client = supabase.createClient(SB_URL, SB_KEY);
 
         let listaMangas = [];
+        // Esta es tu "Llave". Cámbiala por lo que pusiste en la columna access_token
+        let miPass = localStorage.getItem('manga_key');
+
+        async function verificarAcceso() {
+            if (!miPass) {
+                miPass = prompt("Introduce tu clave de acceso:");
+                localStorage.setItem('manga_key', miPass);
+            }
+            cargarDatos();
+        }
 
         async function cargarDatos() {
-            const { data, error } = await client.from('mangas').select('*').order('titulo', { ascending: true });
-            if (error) console.error(error);
-            else { listaMangas = data; render(); }
+            // Solo traemos los mangas si el token coincide
+            const { data, error } = await client
+                .from('mangas')
+                .select('*')
+                .eq('access_token', miPass) // <--- EL FILTRO DE SEGURIDAD
+                .order('titulo', { ascending: true });
+
+            if (error || data.length === 0) {
+                alert("Acceso denegado o clave incorrecta.");
+                localStorage.removeItem('manga_key');
+                location.reload();
+            } else {
+                listaMangas = data;
+                render();
+            }
         }
 
         async function actualizarManga(id, cambios) {
-            const { error } = await client.from('mangas').update(cambios).eq('id', id);
-            if (error) alert("Error: " + error.message);
+            // Añadimos el token a la validación de actualización
+            const { error } = await client
+                .from('mangas')
+                .update(cambios)
+                .eq('id', id)
+            .eq('access_token', miPass); // <--- SEGURIDAD
+
+            if (error) alert("No tienes permiso para editar.");
             else cargarDatos();
         }
 
         async function eliminarManga(id, nombre) {
             if(confirm(`¿Eliminar permanentemente "${nombre}"?`)) {
-                await client.from('mangas').delete().eq('id', id);
-                cargarDatos();
+                const { error } = await client
+                    .from('mangas')
+                    .delete()
+                    .eq('id', id)
+                    .eq('access_token', miPass); // <--- SEGURIDAD
+                
+                if (error) alert("No tienes permiso para borrar.");
+                else cargarDatos();
             }
         }
 
         function editarNombres(id, tit, rom) {
-            const nTit = prompt("Nuevo Título (Español/Inglés):", tit);
+            const nTit = prompt("Nuevo Título:", tit);
             if (nTit === null) return;
             const nRom = prompt("Nuevo Título Romanji:", rom || "");
             if (nRom === null) return;
-            
             actualizarManga(id, { titulo: nTit, titulo_romanji: nRom });
         }
 
@@ -156,7 +189,7 @@
             }).join('');
         }
 
-        window.onload = cargarDatos;
+        window.onload = verificarAcceso;
     </script>
 </body>
 </html>
